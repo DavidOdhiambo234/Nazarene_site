@@ -1,7 +1,6 @@
 // C:\xampp\htdocs\Nazarene_site\js\dynamic.js
 
-// API Base URL
-const API_BASE = 'http://localhost:8000/api';
+const API_BASE = '/api';
 
 // Wait for DOM to load
 document.addEventListener('DOMContentLoaded', function() {

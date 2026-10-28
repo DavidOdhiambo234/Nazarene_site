@@ -1,0 +1,11 @@
+.git
+.env
+.env.*
+!.env.example
+node_modules
+**/node_modules
+check-admin.php
+test.php
+test-db.php
+church_database.sql
+*.log

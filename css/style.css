@@ -942,12 +942,12 @@ section {
 
 .footer-logo {
     display: block;
-    flex: 0 0 64px;
-    width: 64px;
-    height: 64px;
-    padding: 4px;
-    border: 1px solid rgba(211, 149, 18, 0.55);
-    border-radius: 8px;
+    flex: 0 0 76px;
+    width: 76px;
+    height: 76px;
+    padding: 3px;
+    border: 2px solid var(--yellow);
+    border-radius: 10px;
     background: var(--white);
     object-fit: contain;
 }
@@ -1011,13 +1011,13 @@ section {
 
 .footer-social-links a {
     display: grid;
-    width: 42px;
-    height: 42px;
+    width: 46px;
+    height: 46px;
     place-items: center;
-    border: 1px solid rgba(211, 149, 18, 0.45);
+    border: 1px solid var(--yellow);
     border-radius: 50%;
-    background: rgba(211, 149, 18, 0.08);
-    color: var(--yellow);
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--white);
     transition: background var(--transition), color var(--transition), transform var(--transition);
 }
 
@@ -1029,8 +1029,8 @@ section {
 
 .footer-social-links svg {
     display: block;
-    width: 20px;
-    height: 20px;
+    width: 24px;
+    height: 24px;
 }
 
 footer {

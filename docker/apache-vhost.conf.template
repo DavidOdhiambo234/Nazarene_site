@@ -1,0 +1,25 @@
+<VirtualHost *:${PORT}>
+    ServerName localhost
+    DocumentRoot /var/www/html
+
+    <Directory /var/www/html>
+        Options -Indexes +FollowSymLinks
+        AllowOverride All
+        Require all granted
+    </Directory>
+
+    <FilesMatch "(^\.env|\.sql$|\.bak$|^check-admin\.php$|^test(-db)?\.php$)">
+        Require all denied
+    </FilesMatch>
+
+    ProxyPreserveHost On
+    ProxyPass /stkpush http://127.0.0.1:3000/stkpush retry=0
+    ProxyPassReverse /stkpush http://127.0.0.1:3000/stkpush
+    ProxyPass /dpo-pay http://127.0.0.1:3000/dpo-pay retry=0
+    ProxyPassReverse /dpo-pay http://127.0.0.1:3000/dpo-pay
+    ProxyPass /callback http://127.0.0.1:3000/callback retry=0
+    ProxyPassReverse /callback http://127.0.0.1:3000/callback
+
+    ErrorLog ${APACHE_LOG_DIR}/error.log
+    CustomLog ${APACHE_LOG_DIR}/access.log combined
+</VirtualHost>
