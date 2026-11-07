@@ -12,6 +12,8 @@ services:
       mountPath: /var/www/html/uploads
       sizeGB: 1
     envVars:
+      - key: MPESA_ENVIRONMENT
+        value: sandbox
       - key: DB_HOST
         sync: false
       - key: DB_PORT

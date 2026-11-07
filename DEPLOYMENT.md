@@ -17,6 +17,13 @@ The site can run on Render as a Docker web service. PHP and the existing Node.js
 4. Configure the `MPESA_*` variables in Render. Set `MPESA_CALLBACK_URL` to the public Render URL plus `/callback`, or to the final custom-domain URL plus `/callback`.
 5. Deploy to the Render URL first. Test the public pages, admin login, event registrations, contact/newsletter forms, image uploads, and payment callback routing before changing DNS.
 
+## Run the M-Pesa sandbox locally
+
+1. Copy `.env.example` to `.env` and fill in the Daraja sandbox consumer key, consumer secret, shortcode, and passkey. Keep `.env` private; never commit credentials.
+2. Set `MPESA_CALLBACK_URL` to an HTTPS URL publicly reachable by Safaricom, such as a temporary HTTPS tunnel to the local Node server on port 3000. `localhost` cannot receive Safaricom callbacks.
+3. Run `npm install` once, then start the site with `start.bat`. It starts the PHP site and the Node payment API in separate windows.
+4. Open `http://localhost:8000/giving.html` and test with a Daraja sandbox test number. The page reports that an STK request was accepted; that is not proof of a completed payment. The callback currently only logs Safaricom's result; it does not save donation status or issue receipts, so do not treat a request as a recorded donation.
+
 The Blueprint uses a paid Starter web service because Render persistent disks require a paid service, mounts a 1 GB disk for `uploads/`, and disables automatic deploys during initial setup. After validation and cutover, enable automatic deploys in Render if desired.
 
 ## Cut over the live site

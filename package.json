@@ -2,9 +2,9 @@
   "name": "ucnaz-giving-backend",
   "version": "1.0.0",
   "description": "Express backend for University Church of the Nazarene STK Push giving integration.",
-  "main": "server.js",
+  "main": "js/server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node js/server.js"
   },
   "dependencies": {
     "axios": "^1.7.5",

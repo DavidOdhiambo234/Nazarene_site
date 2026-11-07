@@ -34,8 +34,8 @@
                                 <label for="cause">Giving Cause</label>
                                 <select id="cause" name="cause" required>
                                     <option value="">Select a cause</option>
-                                    <option value="Tithe & Offering">Tithe & Offering</option>
-                                    <option value="Sponsor a Child">Sponsor a Child</option>
+                                    <option value="Tithe & Offering">Tithe </option>
+                                    <option value="Sponsor a Child">Offering</option>
                                     <option value="Missions">Missions</option>
                                     <option value="Development Project">Development Project</option>
                                     <option value="Feed a Family">Feed a Family</option>
@@ -49,7 +49,7 @@
                             <div id="mpesa-fields" class="payment-section">
                                 <div class="form-group">
                                     <label for="phone">Phone Number</label>
-                                    <input id="phone" name="phone" type="tel" placeholder="2547XXXXXXXX" inputmode="numeric" autocomplete="tel" />
+                                    <input id="phone" name="phone" type="tel" placeholder="07XX XXX XXX or +2547XX XXX XXX" inputmode="tel" autocomplete="tel" />
                                     <p class="giving-error" id="phone-error" aria-live="polite"></p>
                                 </div>
                             </div>
@@ -166,6 +166,9 @@
             const expiryError = document.getElementById('expiry-error');
             const cvvError = document.getElementById('cvv-error');
             const cardholderError = document.getElementById('cardholder-error');
+            const stkPushEndpoint = ['localhost', '127.0.0.1'].includes(window.location.hostname)
+                ? `${window.location.protocol}//${window.location.hostname}:3000/stkpush`
+                : '/stkpush';
 
             function updateStatus(message, success) {
                 status.hidden = false;
@@ -175,8 +178,10 @@
                 status.style.borderColor = success ? 'rgba(20,115,108,0.18)' : 'rgba(157,2,8,0.18)';
             }
 
-            function validatePhone(value) {
-                return /^2547\d{8}$/.test(value);
+            function normalizeKenyanPhone(value) {
+                const compact = value.trim().replace(/[\s()-]/g, '');
+                const match = compact.match(/^(?:\+?254|0)?([17]\d{8})$/);
+                return match ? `254${match[1]}` : null;
             }
 
             function validateAmount(value) {
@@ -237,6 +242,7 @@
                 const cause = form.cause.value.trim();
                 const amount = amountInput.value.trim();
                 const paymentMethod = form.paymentMethod.value;
+                let phone = '';
                 let valid = true;
 
                 if (!cause) {
@@ -249,10 +255,14 @@
                 }
 
                 if (paymentMethod === 'mpesa') {
-                    const phone = phoneInput.value.trim();
-                    if (!validatePhone(phone)) {
+                    phone = normalizeKenyanPhone(phoneInput.value);
+                    if (!phone) {
                         valid = false;
-                        phoneError.textContent = 'Enter a valid Kenyan phone number like 2547XXXXXXXX.';
+                        phoneError.textContent = 'Enter a valid Kenyan mobile number, such as 0712 345 678 or +254 712 345 678.';
+                    }
+                    if (!/^\d+$/.test(amount)) {
+                        valid = false;
+                        amountError.textContent = 'Enter a whole amount in Kenyan shillings.';
                     }
                 }
 
@@ -318,32 +328,35 @@
                     return;
                 }
 
-                updateStatus('Sending M-Pesa STK Push request. Please complete the prompt on your phone.', true);
+                updateStatus('Sending an M-Pesa payment prompt to your phone...', true);
+                const submitButton = form.querySelector('button[type="submit"]');
+                submitButton.disabled = true;
                 try {
                     const payload = {
                         cause,
-                        phone: phoneInput.value.trim(),
+                        phone,
                         amount: Number(amount),
                         paymentMethod
                     };
-                    const response = await fetch('/stkpush', {
+                    const response = await fetch(stkPushEndpoint, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(payload)
                     });
-                    if (!response.ok) {
-                        throw new Error('Unable to initiate payment request.');
+                    const result = await response.json().catch(() => ({}));
+                    if (!response.ok || !result.success) {
+                        throw new Error(result.message || `Payment service returned an error (${response.status}).`);
                     }
-                    const result = await response.json();
-                    if (result.success) {
-                        updateStatus('Thank you for your gift! Please enter your M-Pesa PIN on your phone to complete the payment.', true);
-                        form.reset();
-                        togglePaymentFields('mpesa');
-                    } else {
-                        throw new Error(result.message || 'The payment request was not completed.');
-                    }
+                    const promptMessage = result.data?.customerMessage
+                        || 'Payment prompt sent. Enter your M-Pesa PIN on your phone to authorize it.';
+                    updateStatus(`${promptMessage} The donation is not complete until M-Pesa confirms it.`, true);
                 } catch (error) {
-                    updateStatus(error.message || 'Payment request failed. Please try again or contact us.', false);
+                    const message = error instanceof TypeError
+                        ? 'Could not connect to the payment service. Make sure the Node payment server is running.'
+                        : error.message;
+                    updateStatus(message || 'Payment request failed. Please try again or contact us.', false);
+                } finally {
+                    submitButton.disabled = false;
                 }
             });
         });

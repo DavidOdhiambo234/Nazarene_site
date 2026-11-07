@@ -5,33 +5,95 @@ const path = require('path');
 require('dotenv').config();
 
 const app = express();
+const allowedLocalOrigins = new Set([
+  'http://localhost',
+  'http://127.0.0.1',
+  'http://localhost:8000',
+  'http://127.0.0.1:8000'
+]);
+
+app.use((req, res, next) => {
+  const origin = req.get('Origin');
+  if (origin && allowedLocalOrigins.has(origin)) {
+    res.set('Access-Control-Allow-Origin', origin);
+    res.set('Vary', 'Origin');
+    res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.set('Access-Control-Allow-Headers', 'Content-Type');
+  }
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(204);
+  }
+  next();
+});
 app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname)));
 
 const consumerKey = process.env.MPESA_CONSUMER_KEY;
 const consumerSecret = process.env.MPESA_CONSUMER_SECRET;
-const shortcode = process.env.MPESA_SHORTCODE || '400200';
+const shortcode = process.env.MPESA_SHORTCODE;
 const passkey = process.env.MPESA_PASSKEY;
-const callbackURL = process.env.MPESA_CALLBACK_URL || 'https://yourdomain.com/callback';
-
-if (!consumerKey || !consumerSecret || !passkey) {
-  console.warn('Warning: MPESA credentials are not fully configured in .env');
-}
+const callbackURL = process.env.MPESA_CALLBACK_URL;
+const mpesaEnvironment = process.env.MPESA_ENVIRONMENT || 'sandbox';
+const mpesaApiBase = mpesaEnvironment === 'production'
+  ? 'https://api.safaricom.co.ke'
+  : 'https://sandbox.safaricom.co.ke';
 
 async function getAccessToken() {
   const auth = Buffer.from(`${consumerKey}:${consumerSecret}`).toString('base64');
   const response = await axios.get(
-    'https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials',
-    { headers: { Authorization: `Basic ${auth}` } }
+    `${mpesaApiBase}/oauth/v1/generate?grant_type=client_credentials`,
+    { headers: { Authorization: `Basic ${auth}` }, timeout: 15000 }
   );
+  if (!response.data.access_token) {
+    throw new Error('Safaricom did not return an access token.');
+  }
   return response.data.access_token;
 }
 
 app.post('/stkpush', async (req, res) => {
+  if (!['sandbox', 'production'].includes(mpesaEnvironment)) {
+    return res.status(500).json({ success: false, message: 'Invalid M-Pesa environment configuration.' });
+  }
+  if (!consumerKey || !consumerSecret || !shortcode || !passkey || !callbackURL) {
+    return res.status(503).json({
+      success: false,
+      message: 'M-Pesa is not fully configured. Please contact the site administrator.'
+    });
+  }
+
+  let callback;
   try {
-    const { phone, amount, account } = req.body;
+    callback = new URL(callbackURL);
+  } catch (error) {
+    return res.status(503).json({
+      success: false,
+      message: 'The M-Pesa callback URL must be a publicly reachable HTTPS URL.'
+    });
+  }
+  if (callback.protocol !== 'https:') {
+    return res.status(503).json({
+      success: false,
+      message: 'The M-Pesa callback URL must be a publicly reachable HTTPS URL.'
+    });
+  }
+
+  const body = req.body && typeof req.body === 'object' ? req.body : {};
+  const phone = typeof body.phone === 'string' ? body.phone : '';
+  const amount = Number(body.amount);
+  const cause = typeof body.cause === 'string' ? body.cause.trim() : '';
+  if (!/^254[17]\d{8}$/.test(phone)) {
+    return res.status(400).json({ success: false, message: 'Enter a valid Kenyan mobile number.' });
+  }
+  if (!Number.isSafeInteger(amount) || amount < 1) {
+    return res.status(400).json({ success: false, message: 'Enter a whole amount of at least KSh 1.' });
+  }
+  if (!cause || cause.length > 100) {
+    return res.status(400).json({ success: false, message: 'Select a valid giving cause.' });
+  }
+
+  try {
     const token = await getAccessToken();
-    const timestamp = new Date().toISOString().replace(/[-:TZ.]/g, '').slice(0, 14);
+    const timestamp = new Date().toISOString().replace(/\D/g, '').slice(0, 14);
     const password = Buffer.from(shortcode + passkey + timestamp).toString('base64');
 
     const stkRequest = {
@@ -44,20 +106,38 @@ app.post('/stkpush', async (req, res) => {
       PartyB: shortcode,
       PhoneNumber: phone,
       CallBackURL: callbackURL,
-      AccountReference: account || 'Tithe/Offering',
-      TransactionDesc: 'Church Giving'
+      AccountReference: cause.replace(/[^a-zA-Z0-9]/g, '').slice(0, 12) || 'Giving',
+      TransactionDesc: cause.slice(0, 20)
     };
 
     const response = await axios.post(
-      'https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest',
+      `${mpesaApiBase}/mpesa/stkpush/v1/processrequest`,
       stkRequest,
       { headers: { Authorization: `Bearer ${token}` } }
     );
 
-    res.json({ message: 'STK Push initiated', data: response.data });
+    if (response.data.ResponseCode !== '0') {
+      return res.status(502).json({
+        success: false,
+        message: response.data.ResponseDescription || 'Safaricom did not accept the payment request.'
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: 'STK Push request accepted.',
+      data: {
+        merchantRequestId: response.data.MerchantRequestID,
+        checkoutRequestId: response.data.CheckoutRequestID,
+        customerMessage: response.data.CustomerMessage
+      }
+    });
   } catch (error) {
     console.error(error.response?.data || error.message || error);
-    res.status(500).json({ error: 'Failed to initiate STK Push' });
+    const message = error.response?.data?.errorMessage
+      || error.response?.data?.ResponseDescription
+      || 'Unable to reach the M-Pesa service. Please try again later.';
+    return res.status(502).json({ success: false, message });
   }
 });
 

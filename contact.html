@@ -11,6 +11,7 @@
     <link rel="stylesheet" href="css/responsive.css" />
     <script defer src="js/navbar.js"></script>
     <script defer src="js/main.js?v=footer-brand-socials"></script>
+    <script defer src="js/contact-form.js"></script>
 </head>
 <body>
     <div id="site-header"></div>
@@ -24,12 +25,12 @@
                             <p><strong>Address</strong></p>
                             <p>Africa Nazarene University, Tuala, Off Magadi Road, Nairobi, Kenya</p>
                             <p><strong>Email</strong></p>
-                            <p>universitychurch2008@gmail.com</p>
+                            <p><a href="mailto:universitychurch2008@gmail.com">universitychurch2008@gmail.com</a></p>
                             <p><strong>Phone</strong></p>
-                            <p>+254756829935</p>
+                            <p><a href="tel:+254756829935">+254 756 829 935</a></p>
                         </div>
                     </div>
-                    <form class="card contact-form" action="https://formspree.io/f/xaqkddyg" method="POST">
+                    <form class="card contact-form" action="https://formspree.io/f/xzeearbb" method="POST">
                         <h2 class="section-title">Send a Message</h2>
                         <label for="name">Your Name</label>
                         <input id="name" name="name" type="text" required placeholder="Your Name" />
@@ -40,6 +41,7 @@
                         <label for="message">Message</label>
                         <textarea id="message" name="message" rows="6" required placeholder="Your message"></textarea>
                         <button class="btn btn-primary" type="submit">Send Message</button>
+                        <p id="contact-form-status" class="contact-form-status" role="status" aria-live="polite" hidden></p>
                     </form>
                 </div>
             </div>
